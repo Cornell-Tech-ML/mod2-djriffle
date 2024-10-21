@@ -8,17 +8,17 @@ import numpy as np
 from dataclasses import field
 from .autodiff import Context, Variable, backpropagate, central_difference
 from .scalar_functions import (
-    EQ,
-    LT,
     Add,
-    Exp,
-    Inv,
-    Log,
-    Mul,
     Neg,
-    ReLU,
+    Inv,
+    Mul,
+    LT,
+    EQ,
     ScalarFunction,
+    Exp,
     Sigmoid,
+    ReLU,
+    Log,
 )
 
 ScalarLike = Union[float, int, "Scalar"]
@@ -70,11 +70,26 @@ class Scalar:
         object.__setattr__(self, "name", str(self.unique_id))
         object.__setattr__(self, "data", float(self.data))
 
-    def __repr__(self) -> str:
-        return f"Scalar({self.data})"
+    def __add__(self, b: ScalarLike) -> Scalar:
+        return Add.apply(self, b)
+
+    def __radd__(self, b: ScalarLike) -> Scalar:
+        return self + b
+
+    def __neg__(self) -> Scalar:
+        return Neg.apply(self)
+
+    def __sub__(self, b: ScalarLike) -> Scalar:
+        return Add.apply(self, Neg.apply(b))
+
+    def __rsub__(self, b: ScalarLike) -> Scalar:
+        return Add.apply(b, Neg.apply(self))
 
     def __mul__(self, b: ScalarLike) -> Scalar:
         return Mul.apply(self, b)
+
+    def __rmul__(self, b: ScalarLike) -> Scalar:
+        return self * b
 
     def __truediv__(self, b: ScalarLike) -> Scalar:
         return Mul.apply(self, Inv.apply(b))
@@ -82,14 +97,30 @@ class Scalar:
     def __rtruediv__(self, b: ScalarLike) -> Scalar:
         return Mul.apply(b, Inv.apply(self))
 
+    def __lt__(self, b: ScalarLike) -> Scalar:
+        return LT.apply(self, b)
+
+    def __eq__(self, b: ScalarLike) -> Scalar:  # type: ignore[override]
+        return EQ.apply(self, b)
+
     def __bool__(self) -> bool:
         return bool(self.data)
 
-    def __radd__(self, b: ScalarLike) -> Scalar:
-        return self + b
+    def exp(self) -> Scalar:
+        """Exponential function."""
+        return Exp.apply(self)
 
-    def __rmul__(self, b: ScalarLike) -> Scalar:
-        return self * b
+    def sigmoid(self) -> Scalar:
+        """Sigmoid function."""
+        return Sigmoid.apply(self)
+
+    def relu(self) -> Scalar:
+        """ReLU function."""
+        return ReLU.apply(self)
+
+    def log(self) -> Scalar:
+        """Natural logarithm."""
+        return Log.apply(self)
 
     # Variable elements for backprop
 
@@ -112,21 +143,25 @@ class Scalar:
         return self.history is not None and self.history.last_fn is None
 
     def is_constant(self) -> bool:
+        """True if this variable is a constant (no `last_fn` and no `derivative`)"""
         return self.history is None
 
     @property
     def parents(self) -> Iterable[Variable]:
-        """Get the variables used to create this one."""
+        """Returns the parents of this variable."""
         assert self.history is not None
         return self.history.inputs
 
     def chain_rule(self, d_output: Any) -> Iterable[Tuple[Variable, Any]]:
+        """Backpropagate derivatives through the computation graph."""
         h = self.history
         assert h is not None
         assert h.last_fn is not None
         assert h.ctx is not None
 
-        raise NotImplementedError("Need to include this file from past assignment.")
+        # Call the backward function of the last function
+        grads = h.last_fn._backward(h.ctx, d_output)
+        return zip(h.inputs, grads)
 
     def backward(self, d_output: Optional[float] = None) -> None:
         """Calls autodiff to fill in the derivatives for the history of this object.
@@ -141,10 +176,8 @@ class Scalar:
             d_output = 1.0
         backpropagate(self, d_output)
 
-    raise NotImplementedError("Need to include this file from past assignment.")
 
-
-def derivative_check(f: Any, *scalars: Scalar) -> None:
+def derivative_check(f: Any, *scalars: Scalar) -> None:  # noqa: D417 this is glitched out they are there
     """Checks that autodiff works on a python function.
     Asserts False if derivative is incorrect.
 
