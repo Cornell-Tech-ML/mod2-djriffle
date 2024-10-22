@@ -81,9 +81,11 @@ class Tensor:
         self.f = backend
 
     def requires_grad_(self, x: bool) -> None:
+        """Set the requires_grad flag."""
         self.history = History()
 
     def requires_grad(self) -> bool:
+        """Check if requires_grad is set."""
         return self.history is not None
 
     def to_numpy(self) -> npt.NDArray[np.float64]:
@@ -425,8 +427,6 @@ class Tensor:
     def __gt__(self, b: TensorLike) -> Tensor:
         """Greater than: self > b"""
         return self.gt(b)
-    
     def __eq__(self, b: TensorLike) -> Tensor:
         """Equality: self == b"""
         return self.eq(b)
-        

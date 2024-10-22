@@ -66,21 +66,25 @@ class Function:
 class Neg(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor) -> Tensor:
+        """Negate function."""
         return t1.f.neg_map(t1)
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
+        """Backward pass for negation."""
         return grad_output.f.neg_map(grad_output)
 
 
 class Inv(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor) -> Tensor:
+        """Inverse function."""
         ctx.save_for_backward(t1)
         return t1.f.inv_map(t1)
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
+        """Backward pass for the inverse function."""
         (t1,) = ctx.saved_values
         return grad_output.f.inv_back_zip(t1, grad_output)
 
@@ -88,10 +92,12 @@ class Inv(Function):
 class Add(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor, t2: Tensor) -> Tensor:
+        """Add two tensors."""
         return t1.f.add_zip(t1, t2)
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
+        """Backward pass for addition."""
         return grad_output, grad_output
 
 
@@ -183,13 +189,25 @@ class Sum(Function):
     def forward(ctx: Context, t1: Tensor, dim: int) -> Tensor:
         """Sum the tensor along the specified dimension."""
         ctx.save_for_backward(t1, dim)
-        return t1.f.add_reduce(t1, dim)
+        
+        # Perform the reduction along the specified dimension
+        reduced_tensor = t1.f.add_reduce(t1, dim)
+
+        # Adjust the shape: Remove the dimension we summed over
+        new_shape = list(t1.shape)
+        new_shape.pop(dim)
+        if len(new_shape) == 0:
+            new_shape = (1,)
+
+        # Return the new tensor with reduced dimensions
+        return Tensor.make(reduced_tensor._tensor._storage, tuple(new_shape), backend=t1.backend)
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
         """Backward pass for sum."""
         t1, dim = ctx.saved_values
-        # The gradient is expanded to match the shape of the input tensor.
+        
+        # Expand the gradient to match the original shape
         expanded_grad = grad_output.expand(t1.shape)
         return expanded_grad
 
@@ -230,7 +248,7 @@ class Permute(Function):
     def forward(ctx: Context, t1: Tensor, order: Tensor) -> Tensor:
         """Permute the dimensions of the tensor according to the given order."""
         ctx.save_for_backward(order)
-        return t1._new(t1._tensor.permute(*order.tolist()))
+        return t1._new(t1._tensor.permute(*order.tolist())) 
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
@@ -244,6 +262,7 @@ class Permute(Function):
 class View(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, shape: Tensor) -> Tensor:
+        """View the tensor with the given shape."""
         ctx.save_for_backward(a.shape)
         assert a._tensor.is_contiguous(), "Must be contiguous to view"
         shape2 = [int(shape[i]) for i in range(shape.size)]
@@ -406,6 +425,7 @@ def tensor(
 def grad_central_difference(
     f: Any, *vals: Tensor, arg: int = 0, epsilon: float = 1e-6, ind: UserIndex
 ) -> float:
+    """Compute the central difference for a function."""
     x = vals[arg]
     up = zeros(x.shape)
     up[ind] = epsilon
