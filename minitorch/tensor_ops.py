@@ -180,7 +180,7 @@ class SimpleOps(TensorOps):
         return ret
 
     @staticmethod
-    def reduce( 
+    def reduce(  # noqa: D417
         fn: Callable[[float, float], float], start: float = 0.0
     ) -> Callable[["Tensor", int], "Tensor"]:
         """Higher-order tensor reduce function. ::

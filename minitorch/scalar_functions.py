@@ -163,8 +163,7 @@ class Sigmoid(ScalarFunction):
         """Backward pass for sigmoid"""
         # Retrieve the saved result (sigmoid value)
         (s,) = ctx.saved_values
-        # Derivative of sigmoid: s * (1 - s)
-        return d_output * s * (1 - s)
+        return operators.sigmoid(s) * (1 - operators.sigmoid(s)) * d_output
 
 
 class ReLU(ScalarFunction):
