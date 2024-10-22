@@ -197,6 +197,7 @@ class Tensor:
 
     def zeros(self, shape: Optional[UserShape] = None) -> Tensor:
         """Create a new tensor filled with zeros."""
+
         def zero(shape: UserShape) -> Tensor:
             return Tensor.make(
                 [0.0] * int(operators.prod(shape)), shape, backend=self.backend
@@ -301,7 +302,7 @@ class Tensor:
     def dims(self) -> int:
         """Returns the number of dimensions in the tensor."""
         return len(self.shape)  # Number of dimensions in the tensor
-    
+
     def all(self, dim: Optional[int] = None) -> Tensor:
         """Check if all elements are true."""
         if dim is None:
@@ -311,15 +312,15 @@ class Tensor:
     def is_close(self, b: Tensor) -> Tensor:
         """Element-wise comparison with tolerance."""
         return IsClose.apply(self, b)
-    
+
     def sigmoid(self) -> Tensor:
         """Apply sigmoid element-wise."""
         return Sigmoid.apply(self)
-    
+
     def relu(self) -> Tensor:
         """Apply ReLU element-wise."""
         return ReLU.apply(self)
-    
+
     def log(self) -> Tensor:
         """Apply logarithm element-wise."""
         return Log.apply(self)
@@ -327,7 +328,7 @@ class Tensor:
     def exp(self) -> Tensor:
         """Apply exponential element-wise."""
         return Exp.apply(self)
-    
+
     def sum(self, dim: Optional[int] = None) -> Tensor:
         """Sum over a specific dimension, or all dimensions."""
         if dim is None:
@@ -336,23 +337,23 @@ class Tensor:
                 self._ensure_tensor(0),
             )
         return Sum.apply(self, self._ensure_tensor(dim))
-    
+
     def mean(self, dim: Optional[int] = None) -> Tensor:
         """Compute the mean of the tensor along the specified dimension."""
         return self.sum(dim) / (self.shape[dim] if dim is not None else self.size)
-    
+
     def permute(self, *dims: Optional[int]) -> Tensor:
         """Permute the dimensions of the tensor."""
         return Permute.apply(self, tensor(list(dims)))
-    
+
     def view(self, *dims: Optional[int]) -> Tensor:
         """View the tensor with a new shape."""
         return View.apply(self, tensor(list(dims)))
-    
+
     def zero_grad_(self) -> None:
         """Set the gradient to None."""
         self.grad = None
-    
+
     # --- DUNDER METHODS ---
     def __add__(self, b: TensorLike) -> Tensor:
         return Add.apply(self, self._ensure_tensor(b))
@@ -366,7 +367,7 @@ class Tensor:
     def __lt__(self, b: TensorLike) -> Tensor:
         return LT.apply(self, self._ensure_tensor(b))
 
-    def __eq__(self, b: TensorLike) -> Tensor: # type: ignore
+    def __eq__(self, b: TensorLike) -> Tensor:  # type: ignore
         return EQ.apply(self, self._ensure_tensor(b))
 
     def __gt__(self, b: TensorLike) -> Tensor:

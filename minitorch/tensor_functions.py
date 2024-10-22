@@ -127,6 +127,7 @@ class Mul(Function):
         (t1, t2) = ctx.saved_values
         return t1.f.mul_zip(grad_output, t2), t2.f.mul_zip(grad_output, t1)
 
+
 class Sigmoid(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor) -> Tensor:
@@ -141,9 +142,12 @@ class Sigmoid(Function):
         (output,) = ctx.saved_values
         # Convert 1.0 to a Tensor using _ensure_tensor
         one_tensor = output._ensure_tensor(1.0)
-        sigmoid_grad = output.f.mul_zip(output, output.f.add_zip(output.f.neg_map(output), one_tensor))
+        sigmoid_grad = output.f.mul_zip(
+            output, output.f.add_zip(output.f.neg_map(output), one_tensor)
+        )
         return grad_output.f.mul_zip(grad_output, sigmoid_grad)
-    
+
+
 class ReLU(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor) -> Tensor:
@@ -157,6 +161,7 @@ class ReLU(Function):
         (t1,) = ctx.saved_values
         # ReLU derivative is 1 where t1 > 0, otherwise 0
         return grad_output.f.relu_back_zip(t1, grad_output)
+
 
 class Log(Function):
     @staticmethod
@@ -172,7 +177,8 @@ class Log(Function):
         # Derivative of log is 1/t1, so we use the inv_map (1/x)
         inv_t1 = t1.f.inv_map(t1)
         return grad_output.f.mul_zip(grad_output, inv_t1)
-    
+
+
 class Exp(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor) -> Tensor:
@@ -186,7 +192,8 @@ class Exp(Function):
         (t1,) = ctx.saved_values
         # Derivative of exp is exp(t1)
         return grad_output.f.mul_zip(grad_output, t1.f.exp_map(t1))
-    
+
+
 class Sum(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor, dim: Optional[Tensor] = None) -> Tensor:
@@ -202,6 +209,7 @@ class Sum(Function):
         """Backward pass for sum."""
         return (grad_output, 0.0)
 
+
 class LT(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor, t2: Tensor) -> Tensor:
@@ -214,7 +222,8 @@ class LT(Function):
         """No backward pass for comparison operations, so return zeros."""
         t1, t2 = ctx.saved_values
         return t1.zeros(t1.shape), t2.zeros(t2.shape)
-    
+
+
 class EQ(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor, t2: Tensor) -> Tensor:
@@ -228,12 +237,14 @@ class EQ(Function):
         t1, t2 = ctx.saved_values
         return t1.zeros(t1.shape), t2.zeros(t2.shape)
 
+
 class IsClose(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor, t2: Tensor) -> Tensor:
         """Return 1 if t1 and t2 are close element-wise, otherwise 0."""
         return t1.f.is_close_zip(t1, t2)
-    
+
+
 class Permute(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor, dim: Tensor) -> Tensor:
@@ -252,6 +263,7 @@ class Permute(Function):
             if i != dim_list[i]:
                 rev_list[dim_list[i]] = i
         return grad_output.permute(*rev_list), 0.0
+
 
 class View(Function):
     @staticmethod

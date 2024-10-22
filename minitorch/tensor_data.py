@@ -204,7 +204,7 @@ class TensorData:
     @staticmethod
     def shape_broadcast(shape_a: UserShape, shape_b: UserShape) -> UserShape:
         """Broadcast two shapes to create a new union shape."""
-        return shape_broadcast(shape_a, shape_b) # type: ignore
+        return shape_broadcast(shape_a, shape_b)  # type: ignore
 
     def index(self, index: Union[int, UserIndex]) -> int:
         """Convert a user index to a position in the storage"""

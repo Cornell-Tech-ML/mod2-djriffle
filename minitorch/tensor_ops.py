@@ -35,12 +35,11 @@ class TensorOps:
 
     @staticmethod
     def reduce(
-
         fn: Callable[[float, float], float], start: float = 0.0
     ) -> Callable[[Tensor, int], Tensor]:
         """Reduce placeholder"""
         ...
-    
+
     @staticmethod
     def matrix_multiply(a: Tensor, b: Tensor) -> Tensor:
         """Matrix multiply"""
