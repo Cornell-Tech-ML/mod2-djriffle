@@ -115,8 +115,9 @@ class Mul(Function):
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
-        """The gradient of multiplication is based on the product rule."""
-        return grad_output.f.mul_zip(grad_output, ctx.saved_values[1]), grad_output.f.mul_zip(grad_output, ctx.saved_values[0])
+        """Backward pass for element-wise multiplication."""
+        (t1, t2) = ctx.saved_values
+        return t1.f.mul_zip(grad_output, t2), t2.f.mul_zip(grad_output, t1)
 
 class Sigmoid(Function):
     @staticmethod
@@ -128,9 +129,10 @@ class Sigmoid(Function):
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
-        """The gradient of the sigmoid function."""
+        """Backward pass for sigmoid."""
         (output,) = ctx.saved_values
-        sigmoid_grad = grad_output.f.mul_zip(output, output.f.add_zip(output, output.f.neg_map(output)))
+        # Derivative of sigmoid: sigmoid(x) * (1 - sigmoid(x))
+        sigmoid_grad = output.f.mul_zip(output, output.f.add_zip(output.f.neg_map(output), 1.0))
         return grad_output.f.mul_zip(grad_output, sigmoid_grad)
     
 class ReLU(Function):
@@ -142,8 +144,9 @@ class ReLU(Function):
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
-        """Gradient of ReLU, where ReLU returns 1 if t1 > 0 else 0."""
+        """Backward pass for ReLU."""
         (t1,) = ctx.saved_values
+        # ReLU derivative is 1 where t1 > 0, otherwise 0
         return grad_output.f.relu_back_zip(t1, grad_output)
 
 class Log(Function):
@@ -155,9 +158,11 @@ class Log(Function):
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
-        """Gradient of log is 1/t1."""
+        """Backward pass for log."""
         (t1,) = ctx.saved_values
-        return grad_output.f.log_back_zip(t1, grad_output)
+        # Derivative of log is 1/t1, so we use the inv_map (1/x)
+        inv_t1 = t1.f.inv_map(t1)
+        return grad_output.f.mul_zip(grad_output, inv_t1)
     
 class Exp(Function):
     @staticmethod
@@ -168,34 +173,51 @@ class Exp(Function):
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
-        """Gradient of exp is exp(t1), so we multiply the gradient by the output."""
+        """Backward pass for exp."""
         (t1,) = ctx.saved_values
+        # Derivative of exp is exp(t1)
         return grad_output.f.mul_zip(grad_output, t1.f.exp_map(t1))
     
 class Sum(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor, dim: int) -> Tensor:
         """Sum the tensor along the specified dimension."""
-        ctx.save_for_backward(dim)
+        ctx.save_for_backward(t1, dim)
         return t1.f.add_reduce(t1, dim)
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
-        """Gradient of sum is 1."""
-        (dim,) = ctx.saved_values
-        return grad_output.expand(dim)
+        """Backward pass for sum."""
+        t1, dim = ctx.saved_values
+        # The gradient is expanded to match the shape of the input tensor.
+        expanded_grad = grad_output.expand(t1.shape)
+        return expanded_grad
 
-# class LT(Function):
-#     @staticmethod
-#     def forward(ctx: Context, t1: Tensor, t2: Tensor) -> Tensor:
-#         """Return 1 if t1 < t2 element-wise, otherwise 0."""
-#         return t1.f.lt_zip(t1, t2)
+class LT(Function):
+    @staticmethod
+    def forward(ctx: Context, t1: Tensor, t2: Tensor) -> Tensor:
+        """Return 1 if t1 < t2 element-wise, otherwise 0."""
+        ctx.save_for_backward(t1, t2)
+        return t1.f.lt_zip(t1, t2)
 
-#     @staticmethod
-#     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
-#         """No gradient for comparison operations, return zeros."""
-#         return grad_output.f.zeros_like(ctx.saved_values[0]), grad_output.f.zeros_like(ctx.saved_values[1])
+    @staticmethod
+    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
+        """No backward pass for comparison operations, so return zeros."""
+        t1, t2 = ctx.saved_values
+        return t1.f.zeros(t1.shape), t2.f.zeros(t2.shape)
+    
+class EQ(Function):
+    @staticmethod
+    def forward(ctx: Context, t1: Tensor, t2: Tensor) -> Tensor:
+        """Return 1 if t1 == t2 element-wise, otherwise 0."""
+        ctx.save_for_backward(t1, t2)
+        return t1.f.eq_zip(t1, t2)
 
+    @staticmethod
+    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
+        """No backward pass for equality, so return zeros."""
+        t1, t2 = ctx.saved_values
+        return t1.f.zeros(t1.shape), t2.f.zeros(t2.shape)
 
 class IsClose(Function):
     @staticmethod
