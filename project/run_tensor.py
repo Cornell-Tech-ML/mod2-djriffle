@@ -37,9 +37,9 @@ class Linear(minitorch.Module):
         num_elems, in_size = inputs.shape
         w = self.weights.value
         all_x = inputs.view(num_elems, in_size, 1)
-        matrix_mul = (w * all_x).sum(1)
-        matrix_mul = matrix_mul.view(num_elems, self.out_size)
+        matrix_mul = (w * all_x).sum(1).view(num_elems, self.out_size)
         return matrix_mul + self.bias.value
+
 
 def default_log_fn(epoch, total_loss, correct, losses):
     print("Epoch ", epoch, " loss ", total_loss, "correct", correct)

@@ -196,6 +196,7 @@ class Exp(Function):
 
 class Sum(Function):
     print("sum in tensor_functions.py")
+
     @staticmethod
     def forward(ctx: Context, t1: Tensor, dim: Optional[Tensor] = None) -> Tensor:
         """Sum the tensor along the specified dimension."""
