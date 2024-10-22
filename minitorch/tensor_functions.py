@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import random
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
@@ -66,21 +66,25 @@ class Function:
 class Neg(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor) -> Tensor:
+        """Negate function."""
         return t1.f.neg_map(t1)
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
+        """Backward pass for negation."""
         return grad_output.f.neg_map(grad_output)
 
 
 class Inv(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor) -> Tensor:
+        """Inverse function."""
         ctx.save_for_backward(t1)
         return t1.f.inv_map(t1)
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
+        """Backward pass for the inverse function."""
         (t1,) = ctx.saved_values
         return grad_output.f.inv_back_zip(t1, grad_output)
 
@@ -88,29 +92,189 @@ class Inv(Function):
 class Add(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor, t2: Tensor) -> Tensor:
+        """Add two tensors."""
         return t1.f.add_zip(t1, t2)
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
+        """Backward pass for addition."""
         return grad_output, grad_output
 
 
 class All(Function):
     @staticmethod
-    def forward(ctx: Context, a: Tensor, dim: Tensor) -> Tensor:
+    def forward(ctx: Context, a: Tensor, dim: Optional[Tensor] = None) -> Tensor:
         """Return 1 if all are true"""
-        if dim is not None:
-            return a.f.mul_reduce(a, int(dim.item()))
+        if dim is None:
+            dim_val = -1
         else:
-            return a.f.mul_reduce(a.contiguous().view(int(operators.prod(a.shape))), 0)
+            dim_val = int(dim.item())
+        ctx.save_for_backward(dim_val)
+        return a.f.mul_reduce(a, dim_val)
 
 
 # TODO: Implement for Task 2.3.
+class Mul(Function):
+    @staticmethod
+    def forward(ctx: Context, t1: Tensor, t2: Tensor) -> Tensor:
+        """Element-wise multiplication of two tensors."""
+        ctx.save_for_backward(t1, t2)
+        return t1.f.mul_zip(t1, t2)
+
+    @staticmethod
+    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
+        """Backward pass for element-wise multiplication."""
+        (t1, t2) = ctx.saved_values
+        return t1.f.mul_zip(grad_output, t2), t2.f.mul_zip(grad_output, t1)
+
+
+class Sigmoid(Function):
+    @staticmethod
+    def forward(ctx: Context, t1: Tensor) -> Tensor:
+        """Apply the sigmoid function element-wise."""
+        result = t1.f.sigmoid_map(t1)
+        ctx.save_for_backward(result)
+        return result
+
+    @staticmethod
+    def backward(ctx: Context, grad_output: Tensor) -> Tensor:
+        """Backward pass for sigmoid."""
+        (output,) = ctx.saved_values
+        # Convert 1.0 to a Tensor using _ensure_tensor
+        one_tensor = output._ensure_tensor(1.0)
+        sigmoid_grad = output.f.mul_zip(
+            output, output.f.add_zip(output.f.neg_map(output), one_tensor)
+        )
+        return grad_output.f.mul_zip(grad_output, sigmoid_grad)
+
+
+class ReLU(Function):
+    @staticmethod
+    def forward(ctx: Context, t1: Tensor) -> Tensor:
+        """Apply the ReLU function element-wise."""
+        ctx.save_for_backward(t1)
+        return t1.f.relu_map(t1)
+
+    @staticmethod
+    def backward(ctx: Context, grad_output: Tensor) -> Tensor:
+        """Backward pass for ReLU."""
+        (t1,) = ctx.saved_values
+        # ReLU derivative is 1 where t1 > 0, otherwise 0
+        return grad_output.f.relu_back_zip(t1, grad_output)
+
+
+class Log(Function):
+    @staticmethod
+    def forward(ctx: Context, t1: Tensor) -> Tensor:
+        """Apply the logarithm function element-wise."""
+        ctx.save_for_backward(t1)
+        return t1.f.log_map(t1)
+
+    @staticmethod
+    def backward(ctx: Context, grad_output: Tensor) -> Tensor:
+        """Backward pass for log."""
+        (t1,) = ctx.saved_values
+        # Derivative of log is 1/t1, so we use the inv_map (1/x)
+        inv_t1 = t1.f.inv_map(t1)
+        return grad_output.f.mul_zip(grad_output, inv_t1)
+
+
+class Exp(Function):
+    @staticmethod
+    def forward(ctx: Context, t1: Tensor) -> Tensor:
+        """Apply the exponential function element-wise."""
+        ctx.save_for_backward(t1)
+        return t1.f.exp_map(t1)
+
+    @staticmethod
+    def backward(ctx: Context, grad_output: Tensor) -> Tensor:
+        """Backward pass for exp."""
+        (t1,) = ctx.saved_values
+        # Derivative of exp is exp(t1)
+        return grad_output.f.mul_zip(grad_output, t1.f.exp_map(t1))
+
+
+class Sum(Function):
+    print("sum in tensor_functions.py")
+
+    @staticmethod
+    def forward(ctx: Context, t1: Tensor, dim: Optional[Tensor] = None) -> Tensor:
+        """Sum the tensor along the specified dimension."""
+        print("sum forward in tensor_functions.py")
+        print(t1)
+        if dim is None:
+            print("dim is None in sum forward")
+            dim_val = -1
+        else:
+            print(f"dim is {dim} in sum forward")
+            dim_val = int(dim.item())
+        return t1.f.add_reduce(t1, dim_val)
+
+    @staticmethod
+    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, float]:
+        """Backward pass for sum."""
+        return (grad_output, 0.0)
+
+
+class LT(Function):
+    @staticmethod
+    def forward(ctx: Context, t1: Tensor, t2: Tensor) -> Tensor:
+        """Return 1 if t1 < t2 element-wise, otherwise 0."""
+        ctx.save_for_backward(t1, t2)
+        return t1.f.lt_zip(t1, t2)
+
+    @staticmethod
+    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
+        """No backward pass for comparison operations, so return zeros."""
+        t1, t2 = ctx.saved_values
+        return t1.zeros(t1.shape), t2.zeros(t2.shape)
+
+
+class EQ(Function):
+    @staticmethod
+    def forward(ctx: Context, t1: Tensor, t2: Tensor) -> Tensor:
+        """Return 1 if t1 == t2 element-wise, otherwise 0."""
+        ctx.save_for_backward(t1, t2)
+        return t1.f.eq_zip(t1, t2)
+
+    @staticmethod
+    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
+        """No backward pass for equality, so return zeros."""
+        t1, t2 = ctx.saved_values
+        return t1.zeros(t1.shape), t2.zeros(t2.shape)
+
+
+class IsClose(Function):
+    @staticmethod
+    def forward(ctx: Context, t1: Tensor, t2: Tensor) -> Tensor:
+        """Return 1 if t1 and t2 are close element-wise, otherwise 0."""
+        return t1.f.is_close_zip(t1, t2)
+
+
+class Permute(Function):
+    @staticmethod
+    def forward(ctx: Context, t1: Tensor, dim: Tensor) -> Tensor:
+        """Permute the dimensions of the tensor according to the given order."""
+        ctx.save_for_backward(dim)
+        int_dim = list(map(int, dim._tensor._storage))
+        return t1._new(t1._tensor.permute(*int_dim))
+
+    @staticmethod
+    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, float]:
+        """Permute the gradient in reverse order."""
+        (dim,) = ctx.saved_values
+        dim_list = list(map(int, dim._tensor._storage))
+        rev_list = [dim_list[i] for i in range(len(dim_list))]
+        for i in range(len(dim_list)):
+            if i != dim_list[i]:
+                rev_list[dim_list[i]] = i
+        return grad_output.permute(*rev_list), 0.0
 
 
 class View(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, shape: Tensor) -> Tensor:
+        """View the tensor with the given shape."""
         ctx.save_for_backward(a.shape)
         assert a._tensor.is_contiguous(), "Must be contiguous to view"
         shape2 = [int(shape[i]) for i in range(shape.size)]
@@ -273,6 +437,7 @@ def tensor(
 def grad_central_difference(
     f: Any, *vals: Tensor, arg: int = 0, epsilon: float = 1e-6, ind: UserIndex
 ) -> float:
+    """Compute the central difference for a function."""
     x = vals[arg]
     up = zeros(x.shape)
     up[ind] = epsilon

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Iterable, List, Tuple, Protocol
+from typing import Any, Iterable, Tuple, Protocol
 
 
 # ## Task 1.1
@@ -25,26 +25,49 @@ def central_difference(f: Any, *vals: Any, arg: int = 0, epsilon: float = 1e-6) 
         An approximation of $f'_i(x_0, \ldots, x_{n-1})$
 
     """
-    raise NotImplementedError("Need to include this file from past assignment.")
+    vals_plus = list(vals)
+    vals_minus = list(vals)
+
+    vals_plus[arg] += epsilon
+    vals_minus[arg] -= epsilon
+
+    f_plus = f(*vals_plus)
+    f_minus = f(*vals_minus)
+
+    derivative = (f_plus - f_minus) / (2 * epsilon)
+
+    return derivative
 
 
 variable_count = 1
 
 
 class Variable(Protocol):
-    def accumulate_derivative(self, x: Any) -> None: ...
+    def accumulate_derivative(self, x: Any) -> None:
+        """Accumulate a derivative for this variable."""
+        pass
 
     @property
-    def unique_id(self) -> int: ...
+    def unique_id(self) -> int:
+        """A unique identifier for this variable."""
+        ...
 
-    def is_leaf(self) -> bool: ...
+    def is_leaf(self) -> bool:
+        """True if this variable is a leaf (no parents)."""
+        ...
 
-    def is_constant(self) -> bool: ...
+    def is_constant(self) -> bool:
+        """True if this variable is a constant (no `last_fn` and no `derivative`)"""
+        ...
 
     @property
-    def parents(self) -> Iterable["Variable"]: ...
+    def parents(self) -> Iterable["Variable"]:
+        """Returns the parents of this variable."""
+        ...
 
-    def chain_rule(self, d_output: Any) -> Iterable[Tuple[Variable, Any]]: ...
+    def chain_rule(self, d_output: Any) -> Iterable[Tuple[Variable, Any]]:
+        """Backpropagate derivatives through the computation graph."""
+        ...
 
 
 def topological_sort(variable: Variable) -> Iterable[Variable]:
@@ -59,10 +82,23 @@ def topological_sort(variable: Variable) -> Iterable[Variable]:
         Non-constant Variables in topological order starting from the right.
 
     """
-    raise NotImplementedError("Need to include this file from past assignment.")
+    # TODO: Implement for Task 1.4.
+    visited = set()
+    order = []
+
+    def dfs(v: Variable) -> None:
+        if v.unique_id in visited or v.is_constant():
+            return
+        visited.add(v.unique_id)
+        for parent in v.parents:
+            dfs(parent)
+        order.append(v)
+
+    dfs(variable)
+    return reversed(order)  # Reverse to get the correct topological order
 
 
-def backpropagate(variable: Variable, deriv: Any) -> None:
+def backpropagate(variable: Variable, deriv: Any) -> None:  # noqa: D417
     """Runs backpropagation on the computation graph in order to
     compute derivatives for the leave nodes.
 
@@ -74,7 +110,26 @@ def backpropagate(variable: Variable, deriv: Any) -> None:
     No return. Should write to its results to the derivative values of each leaf through `accumulate_derivative`.
 
     """
-    raise NotImplementedError("Need to include this file from past assignment.")
+    # TODO: Implement for Task 1.4.
+    # Get variables in topological order
+    topo_order = list(topological_sort(variable))
+
+    # Map from variable unique_id to derivative
+    derivatives = {v.unique_id: 0.0 for v in topo_order}
+    derivatives[variable.unique_id] = deriv
+
+    # Traverse variables in reverse topological order (from output to inputs)
+    for v in topo_order:
+        d_output = derivatives[v.unique_id]
+        if v.is_leaf():
+            v.accumulate_derivative(d_output)
+        else:
+            # Compute gradients with respect to parents
+            for parent, grad in v.chain_rule(d_output):
+                if parent.unique_id in derivatives:
+                    derivatives[parent.unique_id] += grad
+                else:
+                    derivatives[parent.unique_id] = grad
 
 
 @dataclass
@@ -92,4 +147,5 @@ class Context:
 
     @property
     def saved_tensors(self) -> Tuple[Any, ...]:
+        """Returns the saved values."""
         return self.saved_values
