@@ -38,7 +38,7 @@ The files that will be synced are:
 
 I did 10 hidden layers for 500 epochs, scoring 48/50
 
-![1729638960249](image/README/1729638960249.png) 
+![1729638960249](image/README/1729638960249.png)
 
 
 ![1729639011472](image/README/1729639011472.png)
