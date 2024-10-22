@@ -3,9 +3,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Callable, Optional, Type
 
 from typing_extensions import Protocol
-
+import numpy as np
 from . import operators
 from .tensor_data import (
+    broadcast_index,
+    index_to_position,
+    to_index,
     shape_broadcast,
 )
 
@@ -412,38 +415,16 @@ def tensor_reduce(
     ) -> None:
         # TODO: Implement for Task 2.3.
         # Calculate the total number of elements in the output tensor.
-        out_size = 1
-        for s in out_shape:
-            out_size *= s
+        out_index = np.zeros_like(out_shape)
+        a_index = np.zeros_like(a_shape)
 
-        # Iterate over every element in the output tensor.
-        for idx in range(out_size):
-            # Compute the multidimensional index for the output tensor.
-            out_index = [0] * len(out_shape)
-            cur_idx = idx
-            for i in range(len(out_shape) - 1, -1, -1):
-                out_index[i] = cur_idx % out_shape[i]
-                cur_idx //= out_shape[i]
+        for i in range(len(a_storage)):
+            to_index(i, a_shape, a_index)
+            broadcast_index(a_index, a_shape, out_shape, out_index)
 
-            # Compute flat position in the output storage.
-            out_pos = sum(out_index[i] * out_strides[i] for i in range(len(out_shape)))
-
-            # Initialize the output element to the start value.
-            out[out_pos] = a_storage[
-                out_pos
-            ]  # Starting from the first element in the reduction dim
-
-            # Iterate over the reduction dimension.
-            for r in range(1, a_shape[reduce_dim]):
-                # Update the index along the reduction dimension.
-                a_index = list(out_index)
-                a_index[reduce_dim] = r
-
-                # Compute flat position in the input storage.
-                a_pos = sum(a_index[i] * a_strides[i] for i in range(len(a_shape)))
-
-                # Apply the reduction function.
-                out[out_pos] = fn(out[out_pos], a_storage[a_pos])
+            out[index_to_position(out_index, out_strides)] = fn(
+                out[index_to_position(out_index, out_strides)], a_storage[i]
+            )
 
     return _reduce
 
