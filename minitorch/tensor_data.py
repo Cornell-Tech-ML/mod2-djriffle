@@ -262,12 +262,17 @@ class TensorData:
             New `TensorData` with the same storage and a new dimension order.
 
         """
+        # Ensure the provided order is a valid permutation of the dimensions
         assert list(sorted(order)) == list(
             range(len(self.shape))
         ), f"Must give a position to each dimension. Shape: {self.shape} Order: {order}"
 
-        # TODO: Implement for Task 2.1.
-        raise NotImplementedError("Need to implement for Task 2.1")
+        # Permute the shape and strides according to the given order
+        new_shape = tuple(self.shape[i] for i in order)
+        new_strides = tuple(self.strides[i] for i in order)
+
+        # Create a new TensorData object with the permuted shape and strides, but the same storage
+        return TensorData(self._storage, new_shape, new_strides)
 
     def to_string(self) -> str:
         """Convert to string"""

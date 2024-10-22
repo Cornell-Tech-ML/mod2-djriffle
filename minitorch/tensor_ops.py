@@ -35,9 +35,12 @@ class TensorOps:
 
     @staticmethod
     def reduce(
-        fn: Callable[[float, float], float], start: float = 0.0
-    ) -> Callable[[Tensor, int], Tensor]: ...
 
+        fn: Callable[[float, float], float], start: float = 0.0
+    ) -> Callable[[Tensor, int], Tensor]:
+        """Reduce placeholder"""
+        ...
+    
     @staticmethod
     def matrix_multiply(a: Tensor, b: Tensor) -> Tensor:
         """Matrix multiply"""
@@ -167,7 +170,7 @@ class SimpleOps(TensorOps):
 
         def ret(a: "Tensor", b: "Tensor") -> "Tensor":
             if a.shape != b.shape:
-                c_shape = shape_broadcast(a.shape, b.shape)
+                c_shape = shape_broadcast(a.shape, b.shape)  # type: ignore
             else:
                 c_shape = a.shape
             out = a.zeros(c_shape)
@@ -267,7 +270,34 @@ def tensor_map(
         in_strides: Strides,
     ) -> None:
         # TODO: Implement for Task 2.3.
-        raise NotImplementedError("Need to implement for Task 2.3")
+        # Calculate the total number of elements in the output tensor.
+        out_size = 1
+        for s in out_shape:
+            out_size *= s
+
+        # Iterate over every element in the output tensor.
+        for idx in range(out_size):
+            # Compute the multidimensional index for the output tensor.
+            out_index = [0] * len(out_shape)
+            cur_idx = idx
+            for i in range(len(out_shape) - 1, -1, -1):
+                out_index[i] = cur_idx % out_shape[i]
+                cur_idx //= out_shape[i]
+
+            # Broadcast input index
+            in_index = [0] * len(in_shape)
+            for i in range(len(in_shape)):
+                if in_shape[i] == 1:
+                    in_index[i] = 0
+                else:
+                    in_index[i] = out_index[i]
+
+            # Compute flat positions in both storage arrays.
+            out_pos = sum(out_index[i] * out_strides[i] for i in range(len(out_shape)))
+            in_pos = sum(in_index[i] * in_strides[i] for i in range(len(in_shape)))
+
+            # Apply the function and store the result.
+            out[out_pos] = fn(in_storage[in_pos])
 
     return _map
 
@@ -314,7 +344,42 @@ def tensor_zip(
         b_strides: Strides,
     ) -> None:
         # TODO: Implement for Task 2.3.
-        raise NotImplementedError("Need to implement for Task 2.3")
+        # Calculate the total number of elements in the output tensor.
+        out_size = 1
+        for s in out_shape:
+            out_size *= s
+
+        # Iterate over every element in the output tensor.
+        for idx in range(out_size):
+            # Compute the multidimensional index for the output tensor.
+            out_index = [0] * len(out_shape)
+            cur_idx = idx
+            for i in range(len(out_shape) - 1, -1, -1):
+                out_index[i] = cur_idx % out_shape[i]
+                cur_idx //= out_shape[i]
+
+            # Broadcast input indices
+            a_index = [0] * len(a_shape)
+            for i in range(len(a_shape)):
+                if a_shape[i] == 1:
+                    a_index[i] = 0
+                else:
+                    a_index[i] = out_index[i]
+
+            b_index = [0] * len(b_shape)
+            for i in range(len(b_shape)):
+                if b_shape[i] == 1:
+                    b_index[i] = 0
+                else:
+                    b_index[i] = out_index[i]
+
+            # Compute flat positions in all storage arrays.
+            out_pos = sum(out_index[i] * out_strides[i] for i in range(len(out_shape)))
+            a_pos = sum(a_index[i] * a_strides[i] for i in range(len(a_shape)))
+            b_pos = sum(b_index[i] * b_strides[i] for i in range(len(b_shape)))
+
+            # Apply the function and store the result.
+            out[out_pos] = fn(a_storage[a_pos], b_storage[b_pos])
 
     return _zip
 
@@ -347,7 +412,39 @@ def tensor_reduce(
         reduce_dim: int,
     ) -> None:
         # TODO: Implement for Task 2.3.
-        raise NotImplementedError("Need to implement for Task 2.3")
+        # Calculate the total number of elements in the output tensor.
+        out_size = 1
+        for s in out_shape:
+            out_size *= s
+
+        # Iterate over every element in the output tensor.
+        for idx in range(out_size):
+            # Compute the multidimensional index for the output tensor.
+            out_index = [0] * len(out_shape)
+            cur_idx = idx
+            for i in range(len(out_shape) - 1, -1, -1):
+                out_index[i] = cur_idx % out_shape[i]
+                cur_idx //= out_shape[i]
+
+            # Compute flat position in the output storage.
+            out_pos = sum(out_index[i] * out_strides[i] for i in range(len(out_shape)))
+
+            # Initialize the output element to the start value.
+            out[out_pos] = a_storage[
+                out_pos
+            ]  # Starting from the first element in the reduction dim
+
+            # Iterate over the reduction dimension.
+            for r in range(1, a_shape[reduce_dim]):
+                # Update the index along the reduction dimension.
+                a_index = list(out_index)
+                a_index[reduce_dim] = r
+
+                # Compute flat position in the input storage.
+                a_pos = sum(a_index[i] * a_strides[i] for i in range(len(a_shape)))
+
+                # Apply the reduction function.
+                out[out_pos] = fn(out[out_pos], a_storage[a_pos])
 
     return _reduce
 
