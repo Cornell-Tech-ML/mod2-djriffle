@@ -51,5 +51,3 @@ I did 10 hidden layers for 200 epochs witha learning rate of 0.05, getting 50/50
 ![1729639405729](image/README/1729639405729.png)
 
 ![1729639576286](image/README/1729639576286.png)
-
-![1729639429788](image/README/1729639429788.png)
